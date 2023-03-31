@@ -14,13 +14,21 @@
 #include <comdef.h>
 #include <iomanip>
 
+#define _USE_MATH_DEFINES
+#include <cmath>
+
+#include <fstream>
 #include <iostream>
+#include <vector>
 
 #include "WaveWriter.h"
+#include "kiss_fft.h"
+#include "kiss_fftr.h"
 
-// REFERENCE_TIME time units per second and per millisecond
-#define REFTIMES_PER_SEC 5000000
+#define REFTIMES_PER_SEC 5000000 // 100 nanosecond => 10^-7 second
 #define REFTIMES_PER_MILLISEC 10000
+
+#define FFTWINSIZE 480
 
 #define SAFE_RELEASE(punk)                                                     \
   if ((punk) != NULL) {                                                        \
@@ -32,6 +40,14 @@ const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
 const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
 const IID IID_IAudioClient = __uuidof(IAudioClient);
 const IID IID_IAudioCaptureClient = __uuidof(IAudioCaptureClient);
+
+// https://en.wikipedia.org/wiki/Hann_function
+void hann_window(float *data, float *out, size_t length) {
+  for (int i = 0; i < length; i++) {
+    double multiplier = 0.5 * (1 - cos(2 * M_PI * i / (length - 1)));
+    out[i] = multiplier * data[i];
+  }
+}
 
 HRESULT RecordAudioStream(const char *file) {
   HRESULT hr;
@@ -55,11 +71,12 @@ HRESULT RecordAudioStream(const char *file) {
   WAVEFORMATEX *pWf = NULL;
   hr = pAudioClient->GetMixFormat(&pWf);
   assert(hr == 0);
-  std::cout << "Sample rate: " << pWf->nSamplesPerSec << "\n"
+  std::cout << "nSamplesPerSec: " << pWf->nSamplesPerSec << "\n"
             << "Channels: " << pWf->nChannels << "\n"
             << "wBitsPerSample: " << pWf->wBitsPerSample << "\n"
             << "cbSize: " << pWf->cbSize << "\n" // size of the extension
             << "nAvgBytesPerSec: " << pWf->nAvgBytesPerSec << "\n"
+            << "nBlockAlign: " << pWf->nBlockAlign << "\n"
             << "Format: 0x" << std::hex << std::uppercase << pWf->wFormatTag
             << std::dec << '\n';
 
@@ -97,6 +114,7 @@ HRESULT RecordAudioStream(const char *file) {
   // Calculate the actual duration of the allocated buffer.
   REFERENCE_TIME hnsActualDuration;
   hnsActualDuration = REFTIMES_PER_SEC * bufferFrameCount / pWf->nSamplesPerSec;
+  std::cout << "hnsActualDuration: " << hnsActualDuration << '\n';
 
   hr = pAudioClient->Start();
   assert(hr == 0);
@@ -106,11 +124,23 @@ HRESULT RecordAudioStream(const char *file) {
   UINT32 uiFileLength = 0;
 
   uint32_t frame = 0;
+  char loading[4] = {'/', '|', '\\', '-'};
   UINT32 packetLength = 0;
   DWORD flags = 0;
   BYTE *pData;
 
-  // Each loop fills about half of the shared buffer.
+  std::vector<float> left_raw_win(FFTWINSIZE, 0.0f);
+  std::vector<float> left_hann_win(FFTWINSIZE, 0.0f);
+  kiss_fftr_cfg cfg = kiss_fftr_alloc(FFTWINSIZE, false, nullptr, nullptr);
+  kiss_fft_cpx out[FFTWINSIZE / 2 + 1];
+  std::vector<float> bins(FFTWINSIZE / 2 + 1);
+  std::vector<float> dbs(FFTWINSIZE / 2 + 1);
+
+  std::ofstream outFile("left_channel.csv");
+  std::ofstream binFile("bin.csv");
+  std::ofstream dbFile("db.csv");
+
+  assert(sizeof(float) == pWf->wBitsPerSample / 8);
   while (TRUE) {
     // Sleep for half the buffer duration.
     Sleep((DWORD)hnsActualDuration / REFTIMES_PER_MILLISEC / 2);
@@ -119,17 +149,41 @@ HRESULT RecordAudioStream(const char *file) {
     while (packetLength != 0) {
       pCaptureClient->GetBuffer(&pData, &numFramesAvailable, &flags, NULL,
                                 NULL);
+      for (int i = 0; i < FFTWINSIZE; i++) {
+        std::memcpy(&left_raw_win[i], (pData + i * 4), sizeof(float));
+        outFile << left_raw_win[i] << '\n';
+      }
+      // hann_window(left_raw_win.data(), left_hann_win.data(), FFTWINSIZE);
+
+      kiss_fftr(cfg, left_raw_win.data(), out);
+      for (int i = 0; i < FFTWINSIZE / 2; i++) {
+        kiss_fft_scalar amp =
+            std::hypot(out[i].r, out[i].i) * 2 / (float)FFTWINSIZE;
+        bins[i] = amp;
+        dbs[i] = 20 * log10(amp / 1);
+
+        binFile << bins[i] << ',';
+        dbFile << dbs[i] << ',';
+      }
+
+      binFile << '\n';
+      dbFile << '\n';
+
       waveWriter.WriteWaveData(pData, numFramesAvailable * pWf->nBlockAlign);
       uiFileLength += numFramesAvailable;
       pCaptureClient->ReleaseBuffer(numFramesAvailable);
       pCaptureClient->GetNextPacketSize(&packetLength);
     }
+
+    std::cout << loading[int(frame / 10) % 4] << '\r' << std::flush;
     frame++;
     if (frame == 100) {
       break;
     }
   }
 
+  kiss_fftr_free(cfg);
+  outFile.close();
   hr = pAudioClient->Stop(); // Stop recording.
   assert(hr == 0);
   waveWriter.FinalizeHeader(pWf, uiFileLength);
