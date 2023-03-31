@@ -140,6 +140,11 @@ HRESULT RecordAudioStream(const char *file) {
   std::ofstream binFile("bin.csv");
   std::ofstream dbFile("db.csv");
 
+  for (int i = 0; i < (FFTWINSIZE / 2); i++) {
+    binFile << i * pWf->nSamplesPerSec / float(FFTWINSIZE) << ',';
+  }
+  binFile << '\n';
+
   assert(sizeof(float) == pWf->wBitsPerSample / 8);
   while (TRUE) {
     // Sleep for half the buffer duration.
