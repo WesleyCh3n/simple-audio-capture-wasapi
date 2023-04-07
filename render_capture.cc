@@ -182,7 +182,7 @@ HRESULT RecordAudioStream(const char *file) {
 
     std::cout << loading[int(frame / 10) % 4] << '\r' << std::flush;
     frame++;
-    if (frame == 100) {
+    if (frame == 1000) {
       break;
     }
   }

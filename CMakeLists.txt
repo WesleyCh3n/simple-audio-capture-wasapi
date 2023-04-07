@@ -12,12 +12,14 @@ add_executable(render_capture
 )
 
 add_executable(test_fftr
-  ./test_fftr.cc
+  ./fftr_test.cc
   ./kiss_fftr.c
   ./kiss_fft.c
 )
 
-add_executable(test_wasapi_cap
-  ./test_wasapi_cap.cc
-  ./wasapi_cap.cc
+add_executable(test_audio_thread
+  ./audio_thread_test.cc
+  ./audio_thread.cc
+  ./kiss_fftr.c
+  ./kiss_fft.c
 )
