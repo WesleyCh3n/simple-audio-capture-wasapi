@@ -11,8 +11,13 @@ add_executable(render_capture
   ./kiss_fft.c
 )
 
-add_executable(fftr_test
-  ./fftr_test.cc
+add_executable(test_fftr
+  ./test_fftr.cc
   ./kiss_fftr.c
   ./kiss_fft.c
+)
+
+add_executable(test_wasapi_cap
+  ./test_wasapi_cap.cc
+  ./wasapi_cap.cc
 )
