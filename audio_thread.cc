@@ -4,26 +4,13 @@
 #include <iomanip>
 #include <stdexcept>
 
-#define REFTIMES_PER_SEC 5000000 // 100 nanosecond => 10^-7 second
-#define REFTIMES_PER_MILLISEC 10000
-
-#define SAFE_RELEASE(punk)                                                     \
-  if ((punk) != nullptr) {                                                     \
-    (punk)->Release();                                                         \
-    (punk) = nullptr;                                                          \
-  }
-
-#define PRETTY_LOG(label, var)                                                 \
-  std::cout << std::setw(16) << std::left << label << ": " << var << '\n';
-
-const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
-const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
-const IID IID_IAudioClient = __uuidof(IAudioClient);
-const IID IID_IAudioCaptureClient = __uuidof(IAudioCaptureClient);
-
 AudioThread::AudioThread(uint32_t fft_win_len)
     : stop_(false), pause_(false), fft_win_len_(fft_win_len) {
-  this->AudioInit();
+  this->audio_stream_ = new AudioStream();
+  std::cout << "float" << sizeof(float) << '\n';
+  w_writer_.Initialize(
+      "test_1.wav",
+      (audio_stream_->GetWaveFormat()->wFormatTag == WAVE_FORMAT_EXTENSIBLE));
   this->FFTInit();
 }
 AudioThread::~AudioThread() { this->Stop(); }
@@ -36,72 +23,15 @@ void AudioThread::FFTInit() {
   this->db_ = std::vector<float>(this->fft_win_len_ / 2 + 1, 0.0f);
 }
 
-void AudioThread::AudioInit() {
-  if (this->thread_) {
-    LOG("Already Start the thread. Skip!");
-    return;
-  }
-  HRESULT hr;
-  IMMDeviceEnumerator *device_num = NULL;
-  hr = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
-                        IID_IMMDeviceEnumerator, (void **)&device_num);
-  assert(hr == 0);
-  IMMDevice *device = NULL;
-  hr = device_num->GetDefaultAudioEndpoint(eRender, eConsole, &device);
-  assert(hr == 0);
-
-  hr = device->Activate(IID_IAudioClient, CLSCTX_ALL, NULL,
-                        (void **)&this->audio_client_);
-  assert(hr == 0);
-
-  hr = this->audio_client_->GetMixFormat(&this->wave_format_);
-  assert(hr == 0);
-  PRETTY_LOG("nSamplesPerSec", this->wave_format_->nSamplesPerSec)
-  PRETTY_LOG("nChannels", this->wave_format_->nChannels)
-  PRETTY_LOG("wBitsPerSample", this->wave_format_->wBitsPerSample)
-  PRETTY_LOG("cbSize", this->wave_format_->cbSize)
-  PRETTY_LOG("nAvgBytesPerSec", this->wave_format_->nAvgBytesPerSec)
-  PRETTY_LOG("nBlockAlign", this->wave_format_->nBlockAlign)
-  PRETTY_LOG("Format", "0x" << std::hex << std::uppercase
-                            << this->wave_format_->wFormatTag << std::dec)
-  if (this->wave_format_->wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
-    if (((WAVEFORMATEXTENSIBLE *)this->wave_format_)->SubFormat ==
-        KSDATAFORMAT_SUBTYPE_PCM) {
-      PRETTY_LOG("SubFormat", "KSDATAFORMAT_SUBTYPE_PCM")
-    } else if (((WAVEFORMATEXTENSIBLE *)this->wave_format_)->SubFormat ==
-               KSDATAFORMAT_SUBTYPE_IEEE_FLOAT) {
-      PRETTY_LOG("SubFormat", "KSDATAFORMAT_SUBTYPE_IEEE_FLOAT")
-    }
-  }
-
-  hr = this->audio_client_->Initialize(
-      AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK, REFTIMES_PER_SEC,
-      0, this->wave_format_, NULL);
-  assert(hr == 0);
-
-  hr = this->audio_client_->GetBufferSize(&this->frame_max_);
-  assert(hr == 0);
-  PRETTY_LOG("Max Frame num", this->frame_max_)
-
-  SAFE_RELEASE(device_num)
-  SAFE_RELEASE(device)
-}
-
 void AudioThread::Start() {
   if (this->thread_) {
     LOG("Already Start the thread. Skip!");
     return;
   }
-
-  HRESULT hr;
-  hr = this->audio_client_->GetService(IID_IAudioCaptureClient,
-                                       (void **)&this->capture_client_);
-  assert(hr == 0);
-  hr = this->audio_client_->Start();
-  assert(hr == 0);
+  this->audio_stream_->StartService();
 
   LOG("Start thread")
-  this->thread_ = std::thread(&AudioThread::Run, this);
+  this->thread_ = std::thread(std::bind(&AudioThread::Run, this));
   this->stop_ = false;
   this->pause_ = false;
 }
@@ -130,11 +60,9 @@ void AudioThread::Stop() {
     this->thread_->join();
     this->thread_ = {};
 
-    this->audio_client_->Stop();
-    CoTaskMemFree(this->wave_format_);
-    SAFE_RELEASE(this->audio_client_)
-    SAFE_RELEASE(this->capture_client_)
-
+    w_writer_.FinalizeHeader(audio_stream_->GetWaveFormat(), total_frame_len_);
+    delete this->audio_stream_;
+    this->audio_stream_ = nullptr;
     LOG("Thread Stopped")
   }
 }
@@ -142,62 +70,45 @@ void AudioThread::Stop() {
 void AudioThread::Run() {
   LOG("--> Enter Thread ID: " << std::this_thread::get_id());
   while (!this->stop_) {
-    this->ProcessFunction();
+    this->audio_stream_->GetBuffer([&] { return this->stop_.load(); },
+                                   [&](uint8_t *data, uint32_t frame_len) {
+                                     this->ProcessBuffer(data, frame_len);
+                                   });
   }
   LOG("--> Exit Thread ID: " << std::this_thread::get_id());
 }
 
-void AudioThread::ProcessFunction() {
-  std::this_thread::sleep_for(std::chrono::milliseconds(
-      REFTIMES_PER_SEC * this->frame_max_ / this->wave_format_->nSamplesPerSec /
-      REFTIMES_PER_MILLISEC / 2));
-  this->capture_client_->GetNextPacketSize(&this->packet_len_);
-  LOG("    --> Get packet len: " << this->packet_len_)
-  DWORD flags = 0;
-  while (!this->stop_ && this->packet_len_ != 0) {
-    if (this->pause_) {
-      // pause this thread
-      std::unique_lock<std::mutex> locker(this->mutex_);
-      this->cv_.wait(locker);
-      locker.unlock();
-    }
+void AudioThread::ProcessBuffer(uint8_t *data, uint32_t frame_len) {
+  // pause this thread
+  if (this->pause_) {
+    std::unique_lock<std::mutex> locker(this->mutex_);
+    this->cv_.wait(locker);
+    locker.unlock();
+  }
 
-    this->capture_client_->GetBuffer(&this->raw_data_, &this->frame_num_,
-                                     &flags, nullptr, nullptr);
+  // TEST: write buffer to wav file
+  total_frame_len_ += frame_len;
+  w_writer_.WriteWaveData(
+      data, frame_len * audio_stream_->GetWaveFormat()->nBlockAlign);
 
-    LOG("        --> Get frame num: " << this->frame_num_)
+  uint32_t ptr = 0;
+  for (int i = 0; i < frame_len; i++, ptr++) {
+    float left = 0, right = 0;
+    std::memcpy(&left, (data + i * 8), sizeof(float));
+    std::memcpy(&right, (data + i * 8 + 4), sizeof(float));
+    this->fft_input_[ptr] = (left + right) / 2;
 
-    // fill buffer
-    uint32_t ptr = 0;
-    for (int i = 0; i < frame_num_; i++, ptr++) {
-      float left = 0, right = 0;
-      std::memcpy(&left, (this->raw_data_ + i * 8), sizeof(float));
-      std::memcpy(&right, (this->raw_data_ + i * 8 + 4), sizeof(float));
-      this->fft_input_[ptr] = (left + right) / 2;
-
-      if (ptr == fft_win_len_ - 1) {
-        // calculate fft
-        kiss_fftr(this->fft_cfg_, this->fft_input_.data(),
-                  this->fft_output_.data());
-        for (int i = 0; i < this->fft_win_len_ / 2; i++) {
-          this->amplitude_[i] = std::hypot(fft_output_[i].r, fft_output_[i].i) *
-                                2 / (float)fft_win_len_;
-          this->db_[i] = 20 * log10(amplitude_[i] / 1);
-        }
-        ptr = 0;
+    if (ptr == fft_win_len_ - 1) {
+      // calculate fft
+      kiss_fftr(this->fft_cfg_, this->fft_input_.data(),
+                this->fft_output_.data());
+      for (int i = 0; i < this->fft_win_len_ / 2; i++) {
+        this->amplitude_[i] = std::hypot(fft_output_[i].r, fft_output_[i].i) *
+                              2 / (float)fft_win_len_;
+        this->db_[i] = 20 * log10(amplitude_[i] / 1);
       }
+      ptr = 0;
     }
-    /* if (this->fft_win_len_ <= this->frame_num_) {
-      for (int i = 0; i < this->fft_win_len_; i++) {
-        float left = 0, right = 0;
-        std::memcpy(&left, (this->raw_data_ + i * 8), sizeof(float));
-        std::memcpy(&right, (this->raw_data_ + i * 8 + 4), sizeof(float));
-        this->fft_input_[i] = (left + right) / 2;
-      }
-    } */
-
-    this->capture_client_->ReleaseBuffer(this->frame_num_);
-    this->capture_client_->GetNextPacketSize(&this->packet_len_);
   }
 }
 

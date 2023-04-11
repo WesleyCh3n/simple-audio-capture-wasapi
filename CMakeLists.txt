@@ -20,6 +20,17 @@ add_executable(test_fftr
 add_executable(test_audio_thread
   ./audio_thread_test.cc
   ./audio_thread.cc
+
+  ./audio_stream.hpp
+
   ./kiss_fftr.c
   ./kiss_fft.c
+
+  ./WaveWriter.cc
+)
+
+add_executable(audio_test
+  ./audio_stream_test.cc
+  ./audio_stream.hpp
+  ./WaveWriter.cc
 )

@@ -17,8 +17,11 @@
 #include <Windows.h>
 
 // FFT
+#include "audio_stream.hpp"
 #include "kiss_fft.h"
 #include "kiss_fftr.h"
+
+#include "WaveWriter.h"
 
 #define LOG(x) std::cout << x << '\n';
 
@@ -34,24 +37,20 @@ public:
   std::vector<float> GetFrequency();
 
 private:
-  void AudioInit();
   void FFTInit();
   void Run();
-  void ProcessFunction();
+  void ProcessBuffer(uint8_t *data, uint32_t frame_len);
   std::optional<std::thread> thread_;
   std::atomic_bool stop_;
   std::atomic_bool pause_;
   std::condition_variable cv_;
   std::mutex mutex_;
 
-  IAudioClient *audio_client_ = nullptr;
-  IAudioCaptureClient *capture_client_ = nullptr;
-  WAVEFORMATEX *wave_format_ = nullptr;
+  AudioStream *audio_stream_;
 
-  uint32_t frame_max_ = 0;
-  uint32_t packet_len_ = 0;
-  uint32_t frame_num_ = 0;
-  uint8_t *raw_data_ = nullptr;
+  // TEST: for wav writing purpose
+  WaveWriter w_writer_;
+  uint32_t total_frame_len_ = 0;
 
   kiss_fftr_cfg fft_cfg_;
   uint32_t fft_win_len_;
