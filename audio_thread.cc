@@ -4,24 +4,17 @@
 #include <iomanip>
 #include <stdexcept>
 
-AudioThread::AudioThread(uint32_t fft_win_len)
-    : stop_(false), pause_(false), fft_win_len_(fft_win_len) {
+AudioThread::AudioThread() : stop_(false), pause_(false) {
   this->audio_stream_ = new AudioStream();
-  std::cout << "float" << sizeof(float) << '\n';
+  this->audio_fft_ =
+      new AudioFFT(this->audio_stream_->GetWaveFormat()->nSamplesPerSec / 100,
+                   this->audio_stream_->GetWaveFormat());
   w_writer_.Initialize(
       "test_1.wav",
       (audio_stream_->GetWaveFormat()->wFormatTag == WAVE_FORMAT_EXTENSIBLE));
-  this->FFTInit();
+  this->decibel_ = new float[audio_fft_->GetOutputLen()];
 }
 AudioThread::~AudioThread() { this->Stop(); }
-
-void AudioThread::FFTInit() {
-  this->fft_cfg_ = kiss_fftr_alloc(this->fft_win_len_, false, nullptr, nullptr);
-  this->fft_input_ = std::vector<float>(this->fft_win_len_, 0.0f);
-  this->fft_output_ = std::vector<kiss_fft_cpx>(this->fft_win_len_ / 2 + 1);
-  this->amplitude_ = std::vector<float>(this->fft_win_len_ / 2 + 1, 0.0f);
-  this->db_ = std::vector<float>(this->fft_win_len_ / 2 + 1, 0.0f);
-}
 
 void AudioThread::Start() {
   if (this->thread_) {
@@ -62,7 +55,9 @@ void AudioThread::Stop() {
 
     w_writer_.FinalizeHeader(audio_stream_->GetWaveFormat(), total_frame_len_);
     delete this->audio_stream_;
+    delete this->audio_fft_;
     this->audio_stream_ = nullptr;
+    this->audio_fft_ = nullptr;
     LOG("Thread Stopped")
   }
 }
@@ -90,29 +85,12 @@ void AudioThread::ProcessBuffer(uint8_t *data, uint32_t frame_len) {
   total_frame_len_ += frame_len;
   w_writer_.WriteWaveData(
       data, frame_len * audio_stream_->GetWaveFormat()->nBlockAlign);
-
-  uint32_t ptr = 0;
-  for (int i = 0; i < frame_len; i++, ptr++) {
-    float left = 0, right = 0;
-    std::memcpy(&left, (data + i * 8), sizeof(float));
-    std::memcpy(&right, (data + i * 8 + 4), sizeof(float));
-    this->fft_input_[ptr] = (left + right) / 2;
-
-    if (ptr == fft_win_len_ - 1) {
-      // calculate fft
-      kiss_fftr(this->fft_cfg_, this->fft_input_.data(),
-                this->fft_output_.data());
-      for (int i = 0; i < this->fft_win_len_ / 2; i++) {
-        this->amplitude_[i] = std::hypot(fft_output_[i].r, fft_output_[i].i) *
-                              2 / (float)fft_win_len_;
-        this->db_[i] = 20 * log10(amplitude_[i] / 1);
-      }
-      ptr = 0;
-    }
-  }
+  // TODO: base on type cast to different type
+  this->decibel_ = audio_fft_->GetDecibel((float *)data, frame_len);
 }
 
-std::vector<float> AudioThread::GetFrequency() {
+float *AudioThread::GetDecibel(uint32_t *out_len) {
   std::unique_lock<std::mutex> locker(this->mutex_);
-  return this->amplitude_;
+  *out_len = this->audio_fft_->GetOutputLen();
+  return this->decibel_;
 }

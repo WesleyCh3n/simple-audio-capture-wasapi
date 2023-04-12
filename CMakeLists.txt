@@ -19,9 +19,10 @@ add_executable(test_fftr
 
 add_executable(test_audio_thread
   ./audio_thread_test.cc
-  ./audio_thread.cc
 
+  ./audio_thread.cc
   ./audio_stream.hpp
+  ./audio_fft.hpp
 
   ./kiss_fftr.c
   ./kiss_fft.c

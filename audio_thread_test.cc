@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
   std::cout << "Start main...\n";
   HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
-  AudioThread w(240);
+  AudioThread w;
   std::vector<float> data;
   w.Start();
 

@@ -18,7 +18,7 @@
 inline void PrintWaveFormat(WAVEFORMATEX *wf);
 
 class AudioStream {
-#define REFTIMES_PER_SEC 5000000 // 100 nanosecond => 10^-7 second
+#define REFTIMES_PER_SEC 10000000 // 100 nanosecond => 10^-7 second
 #define REFTIMES_PER_MILLISEC 10000
 public:
   AudioStream()
@@ -42,15 +42,16 @@ public:
     assert(hr == 0);
     hr = this->audio_client_->Start();
     assert(hr == 0);
+    this->sleep_time_ = REFTIMES_PER_SEC * this->frame_max_ /
+                        this->wave_format_->nSamplesPerSec /
+                        REFTIMES_PER_MILLISEC / 2;
   }
 
   using StopFn = std::function<bool()>;
   using CallbackFn =
       std::function<void(uint8_t *, uint32_t)>; // data, frame count
   void GetBuffer(StopFn stop, CallbackFn callback) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(
-        REFTIMES_PER_SEC * this->frame_max_ /
-        this->wave_format_->nSamplesPerSec / REFTIMES_PER_MILLISEC / 2));
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time_));
     this->capture_client_->ReleaseBuffer(this->frame_num_);
     this->capture_client_->GetNextPacketSize(&this->packet_len_);
     while (this->packet_len_ != 0 && !stop()) {
@@ -105,6 +106,7 @@ private:
   IAudioClient *audio_client_;
   IAudioCaptureClient *capture_client_;
   WAVEFORMATEX *wave_format_;
+  uint64_t sleep_time_;
 
   uint32_t buffer_flag;
   uint32_t frame_max_;
