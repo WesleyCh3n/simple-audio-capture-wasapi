@@ -20,7 +20,7 @@ class AudioFFT {
 public:
   AudioFFT(uint32_t len, WAVEFORMATEX *wf)
       : len_(len), cfg_(nullptr), wave_format_(wf), input_(nullptr),
-        output_(nullptr), amplitude_(nullptr), decibel_(nullptr) {
+        output_(nullptr) {
     cfg_ = kiss_fftr_alloc(len_, false, nullptr, nullptr);
     input_ = new float[len_]{0.0f};
     out_len_ = len_ / 2 + 1;
@@ -28,8 +28,6 @@ public:
 
     w_ptr_ = 0;
     freq_range_ = new float[out_len_]{0.0f};
-    amplitude_ = new float[out_len_]{0.0f};
-    decibel_ = new float[out_len_]{0.0f};
 
     assert(sizeof(float) == wf->wBitsPerSample / 8);
     channel_datum_ = new float[wf->nChannels];
@@ -42,8 +40,6 @@ public:
     std::cout << "AudioFFT dtor called\n";
     DEL_ARR(input_)
     DEL_ARR(output_)
-    DEL_ARR(amplitude_)
-    DEL_ARR(decibel_)
     kiss_fft_cleanup();
   }
 
@@ -55,7 +51,8 @@ public:
     }
     // emp_file_ << '\n';
   }
-  template <typename T> float *GetDecibel(T *data, uint32_t &frame_len) {
+  template <typename T>
+  void GetDecibel(T *data, uint32_t &frame_len, float *dst) {
     for (uint32_t i = 0; i < frame_len; i++, w_ptr_++) {
       // TODO: base on channel and type -> different mono function
       T mono_sum = 0;
@@ -68,16 +65,15 @@ public:
         // calculate fft
         kiss_fftr(this->cfg_, this->input_, this->output_);
         for (uint32_t j = 0; j < this->out_len_; j++) {
-          this->amplitude_[j] =
+          float amplitude =
               std::hypot(output_[j].r, output_[j].i) * 2 / (float)len_;
-          this->decibel_[j] = 20 * log10(amplitude_[j] / 1);
+          dst[j] = 20 * log10(amplitude / 1);
           // emp_file_ << amplitude_[i] << ',';
         }
         // emp_file_ << '\n';
         w_ptr_ = 0;
       }
     }
-    return this->decibel_;
   }
 
 private:
@@ -94,7 +90,5 @@ private:
 
   float *freq_range_;
   kiss_fft_cpx *output_;
-  float *amplitude_;
-  float *decibel_;
 };
 #endif
