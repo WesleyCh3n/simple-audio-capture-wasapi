@@ -14,9 +14,12 @@
 // Wasapi
 #include <Windows.h>
 
-#include "WaveWriter.h"
 #include "audio_fft.hpp"
 #include "audio_stream.hpp"
+
+#ifdef DEBUG
+#include "WaveWriter.h"
+#endif
 
 #define LOG(x) std::cout << x << '\n';
 
@@ -44,9 +47,11 @@ private:
   AudioStream *audio_stream_;
   AudioFFT *audio_fft_;
 
-  // TEST: for wav writing purpose
+#ifdef DEBUG
+  // for wav writing purpose
   WaveWriter w_writer_;
   uint32_t total_frame_len_ = 0;
+#endif
 
   float *decibel_;
   uint32_t decibel_len_;

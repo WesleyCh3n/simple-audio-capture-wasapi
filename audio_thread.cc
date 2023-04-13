@@ -10,11 +10,13 @@ AudioThread::AudioThread() : stop_(false), pause_(false) {
       new AudioFFT(this->audio_stream_->GetWaveFormat()->nSamplesPerSec / 100,
                    this->audio_stream_->GetWaveFormat());
   this->decibel_len_ = audio_fft_->GetOutputLen();
+  this->decibel_ = new float[decibel_len_];
+
+#ifdef DEBUG
   w_writer_.Initialize(
       "test_1.wav",
       (audio_stream_->GetWaveFormat()->wFormatTag == WAVE_FORMAT_EXTENSIBLE));
-
-  this->decibel_ = new float[decibel_len_];
+#endif
 }
 AudioThread::~AudioThread() { this->Stop(); }
 
@@ -55,7 +57,10 @@ void AudioThread::Stop() {
     this->thread_->join();
     this->thread_ = {};
 
+#ifdef DEBUG
     w_writer_.FinalizeHeader(audio_stream_->GetWaveFormat(), total_frame_len_);
+#endif
+
     delete this->audio_stream_;
     delete this->audio_fft_;
     this->audio_stream_ = nullptr;
@@ -83,10 +88,12 @@ void AudioThread::ProcessBuffer(uint8_t *data, uint32_t frame_len) {
     locker.unlock();
   }
 
-  // TEST: write buffer to wav file
+#ifdef DEBUG
+  // write buffer to wav file
   total_frame_len_ += frame_len;
   w_writer_.WriteWaveData(
       data, frame_len * audio_stream_->GetWaveFormat()->nBlockAlign);
+#endif
 
   // TODO: base on type cast to different type
   audio_fft_->GetDecibel((float *)data, frame_len, this->decibel_);

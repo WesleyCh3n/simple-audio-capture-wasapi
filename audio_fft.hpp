@@ -6,9 +6,6 @@
 #include <cmath>
 #include <mmdeviceapi.h>
 
-// TEST:
-#include <fstream>
-
 #include "kiss_fft.h"
 #include "kiss_fftr.h"
 
@@ -31,10 +28,6 @@ public:
 
     assert(sizeof(float) == wf->wBitsPerSample / 8);
     channel_datum_ = new float[wf->nChannels];
-    /*
-        float *freq = new float[out_len_];
-        emp_file_ = std::ofstream("amplitude.csv");
-        this->GetFreqRange(freq); */
   }
   ~AudioFFT() {
     std::cout << "AudioFFT dtor called\n";
@@ -47,14 +40,11 @@ public:
   void GetFreqRange(float *arr) {
     for (uint32_t i = 0; i < out_len_; i++) {
       arr[i] = i * wave_format_->nSamplesPerSec / float(len_);
-      // emp_file_ << arr[i] << ',';
     }
-    // emp_file_ << '\n';
   }
   template <typename T>
   void GetDecibel(T *data, uint32_t &frame_len, float *dst) {
     for (uint32_t i = 0; i < frame_len; i++, w_ptr_++) {
-      // TODO: base on channel and type -> different mono function
       T mono_sum = 0;
       for (uint16_t c = 0; c < wave_format_->nChannels; c++) {
         mono_sum += data[(i * wave_format_->nChannels) + c];
@@ -68,16 +58,13 @@ public:
           float amplitude =
               std::hypot(output_[j].r, output_[j].i) * 2 / (float)len_;
           dst[j] = 20 * log10(amplitude / 1);
-          // emp_file_ << amplitude_[i] << ',';
         }
-        // emp_file_ << '\n';
         w_ptr_ = 0;
       }
     }
   }
 
 private:
-  // std::ofstream emp_file_;
   uint32_t len_;
   uint32_t out_len_;
 
