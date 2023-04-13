@@ -9,10 +9,12 @@ AudioThread::AudioThread() : stop_(false), pause_(false) {
   this->audio_fft_ =
       new AudioFFT(this->audio_stream_->GetWaveFormat()->nSamplesPerSec / 100,
                    this->audio_stream_->GetWaveFormat());
+  this->decibel_len_ = audio_fft_->GetOutputLen();
   w_writer_.Initialize(
       "test_1.wav",
       (audio_stream_->GetWaveFormat()->wFormatTag == WAVE_FORMAT_EXTENSIBLE));
-  this->decibel_ = new float[audio_fft_->GetOutputLen()];
+
+  this->decibel_ = new float[decibel_len_];
 }
 AudioThread::~AudioThread() { this->Stop(); }
 
@@ -85,12 +87,14 @@ void AudioThread::ProcessBuffer(uint8_t *data, uint32_t frame_len) {
   total_frame_len_ += frame_len;
   w_writer_.WriteWaveData(
       data, frame_len * audio_stream_->GetWaveFormat()->nBlockAlign);
+
   // TODO: base on type cast to different type
-  this->decibel_ = audio_fft_->GetDecibel((float *)data, frame_len);
+  audio_fft_->GetDecibel((float *)data, frame_len, this->decibel_);
 }
 
-float *AudioThread::GetDecibel(uint32_t *out_len) {
-  std::unique_lock<std::mutex> locker(this->mutex_);
-  *out_len = this->audio_fft_->GetOutputLen();
-  return this->decibel_;
+uint32_t AudioThread::GetDecibelLen() { return this->decibel_len_; }
+
+void AudioThread::GetDecibel(float *dst) {
+  // std::unique_lock<std::mutex> locker(this->mutex_);
+  std::copy(this->decibel_, this->decibel_ + this->decibel_len_, dst);
 }

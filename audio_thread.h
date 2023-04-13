@@ -29,7 +29,8 @@ public:
   void Resume();
   void Stop();
 
-  float *GetDecibel(uint32_t *out_len);
+  uint32_t GetDecibelLen();
+  void GetDecibel(float *dst);
 
 private:
   void Run();
@@ -47,8 +48,8 @@ private:
   WaveWriter w_writer_;
   uint32_t total_frame_len_ = 0;
 
-  std::vector<float> amplitude_;
   float *decibel_;
+  uint32_t decibel_len_;
 };
 
 #endif
