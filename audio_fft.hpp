@@ -1,10 +1,13 @@
 #ifndef AUDIO_FFT_HPP
 #define AUDIO_FFT_HPP
-#include <cassert>
-#include <mmdeviceapi.h>
-#include <stdint.h>
+#include <iostream>
 
+#include <cassert>
 #include <cmath>
+#include <mmdeviceapi.h>
+
+// TEST:
+#include <fstream>
 
 #include "kiss_fft.h"
 #include "kiss_fftr.h"
@@ -23,14 +26,20 @@ public:
     out_len_ = len_ / 2 + 1;
     output_ = new kiss_fft_cpx[out_len_];
 
+    w_ptr_ = 0;
     freq_range_ = new float[out_len_]{0.0f};
     amplitude_ = new float[out_len_]{0.0f};
     decibel_ = new float[out_len_]{0.0f};
 
     assert(sizeof(float) == wf->wBitsPerSample / 8);
     channel_datum_ = new float[wf->nChannels];
+    /*
+        float *freq = new float[out_len_];
+        emp_file_ = std::ofstream("amplitude.csv");
+        this->GetFreqRange(freq); */
   }
   ~AudioFFT() {
+    std::cout << "AudioFFT dtor called\n";
     DEL_ARR(input_)
     DEL_ARR(output_)
     DEL_ARR(amplitude_)
@@ -42,7 +51,9 @@ public:
   void GetFreqRange(float *arr) {
     for (uint32_t i = 0; i < out_len_; i++) {
       arr[i] = i * wave_format_->nSamplesPerSec / float(len_);
+      // emp_file_ << arr[i] << ',';
     }
+    // emp_file_ << '\n';
   }
   template <typename T> float *GetDecibel(T *data, uint32_t &frame_len) {
     for (uint32_t i = 0; i < frame_len; i++, w_ptr_++) {
@@ -51,16 +62,18 @@ public:
       for (uint16_t c = 0; c < wave_format_->nChannels; c++) {
         mono_sum += data[(i * wave_format_->nChannels) + c];
       }
-      input_[w_ptr_] = mono_sum / wave_format_->nChannels;
+      input_[w_ptr_] = (float)mono_sum / (float)wave_format_->nChannels;
 
       if (w_ptr_ == len_ - 1) {
         // calculate fft
         kiss_fftr(this->cfg_, this->input_, this->output_);
-        for (uint32_t i = 0; i < this->out_len_; i++) {
-          this->amplitude_[i] =
-              std::hypot(output_[i].r, output_[i].i) * 2 / (float)len_;
-          this->decibel_[i] = 20 * log10(amplitude_[i] / 1);
+        for (uint32_t j = 0; j < this->out_len_; j++) {
+          this->amplitude_[j] =
+              std::hypot(output_[j].r, output_[j].i) * 2 / (float)len_;
+          this->decibel_[j] = 20 * log10(amplitude_[j] / 1);
+          // emp_file_ << amplitude_[i] << ',';
         }
+        // emp_file_ << '\n';
         w_ptr_ = 0;
       }
     }
@@ -68,7 +81,7 @@ public:
   }
 
 private:
-  template <typename T> T *Test(T *ptr) {}
+  // std::ofstream emp_file_;
   uint32_t len_;
   uint32_t out_len_;
 
