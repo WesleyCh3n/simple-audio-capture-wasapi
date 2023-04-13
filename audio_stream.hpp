@@ -24,6 +24,8 @@ public:
   AudioStream()
       : audio_client_(nullptr), capture_client_(nullptr), wave_format_(nullptr),
         raw_data_(nullptr), frame_max_(0), frame_num_(0), packet_len_(0) {
+    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    assert(hr == 0);
     this->Initialize();
   }
   ~AudioStream() {
@@ -32,6 +34,7 @@ public:
     this->audio_client_->Release();
     this->capture_client_->Release();
     CoTaskMemFree(this->wave_format_);
+    CoUninitialize();
   }
 
   void StartService() {

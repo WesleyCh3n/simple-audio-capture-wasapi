@@ -1,5 +1,6 @@
 #include "audio_thread.h"
 #include <iostream>
+#include <thread>
 
 #define LOGV(x)                                                                \
   {                                                                            \
@@ -11,20 +12,25 @@
 
 int main(int argc, char *argv[]) {
   std::cout << "Start main...\n";
-  HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
 
   AudioThread w;
   std::vector<float> data;
   w.Start();
 
-  /* while (true) {
-    data = w.GetFrequency();
-  } */
-  std::cout << "Press enter to quit...\n\n";
-  getchar();
+  auto db_len = w.GetDecibelLen();
+  float *vec = new float[db_len];
+  /* std::cout << "Press enter to quit...\n\n";
+  getchar(); */
+  for (int i = 0; i < 10; i++) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    w.GetDecibel(vec);
+    for (int j = 0; j < db_len; j++) {
+      std::cout << vec[j] << ' ';
+    }
+    std::cout << '\n';
+  }
 
   w.Stop();
-  CoUninitialize();
   std::cout << "Exit main...\n";
   return 0;
 }
