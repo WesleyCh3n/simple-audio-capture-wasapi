@@ -48,6 +48,11 @@ public:
                         this->wave_format_->nSamplesPerSec /
                         REFTIMES_PER_MILLISEC / 2;
   }
+  void StopService() {
+    HRESULT hr;
+    hr = this->audio_client_->Stop();
+    assert(hr == 0);
+  }
 
   using StopFn = std::function<bool()>;
   using CallbackFn =
@@ -60,7 +65,10 @@ public:
       this->capture_client_->GetBuffer(&this->raw_data_, &this->frame_num_,
                                        (DWORD *)&this->buffer_flag, nullptr,
                                        nullptr);
-      callback(this->raw_data_, this->frame_num_);
+      // AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY
+      if (this->buffer_flag != AUDCLNT_BUFFERFLAGS_SILENT) {
+        callback(this->raw_data_, this->frame_num_);
+      }
       this->capture_client_->ReleaseBuffer(this->frame_num_);
       this->capture_client_->GetNextPacketSize(&this->packet_len_);
     }
