@@ -34,6 +34,7 @@ public:
 
   uint32_t GetDecibelLen();
   void GetDecibel(float *dst);
+  void GetFreqRange(float *dst);
 
 private:
   void Run();

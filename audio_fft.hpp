@@ -37,9 +37,9 @@ public:
   }
 
   uint32_t GetOutputLen() { return this->out_len_; }
-  void GetFreqRange(float *arr) {
+  void GetFreqRange(float *dst) {
     for (uint32_t i = 0; i < out_len_; i++) {
-      arr[i] = i * wave_format_->nSamplesPerSec / float(len_);
+      dst[i] = i * wave_format_->nSamplesPerSec / float(len_);
     }
   }
   template <typename T>

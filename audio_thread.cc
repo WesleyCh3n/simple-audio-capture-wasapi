@@ -18,7 +18,13 @@ AudioThread::AudioThread() : stop_(false), pause_(false) {
       (audio_stream_->GetWaveFormat()->wFormatTag == WAVE_FORMAT_EXTENSIBLE));
 #endif
 }
-AudioThread::~AudioThread() { this->Stop(); }
+AudioThread::~AudioThread() {
+  this->Stop();
+  delete this->audio_stream_;
+  delete this->audio_fft_;
+  this->audio_stream_ = nullptr;
+  this->audio_fft_ = nullptr;
+}
 
 void AudioThread::Start() {
   if (this->thread_) {
@@ -60,11 +66,7 @@ void AudioThread::Stop() {
 #ifdef DEBUG
     w_writer_.FinalizeHeader(audio_stream_->GetWaveFormat(), total_frame_len_);
 #endif
-
-    delete this->audio_stream_;
-    delete this->audio_fft_;
-    this->audio_stream_ = nullptr;
-    this->audio_fft_ = nullptr;
+    this->audio_stream_->StopService();
     LOG("Thread Stopped")
   }
 }
@@ -105,3 +107,5 @@ void AudioThread::GetDecibel(float *dst) {
   // std::unique_lock<std::mutex> locker(this->mutex_);
   std::copy(this->decibel_, this->decibel_ + this->decibel_len_, dst);
 }
+
+void AudioThread::GetFreqRange(float *dst) { audio_fft_->GetFreqRange(dst); }
