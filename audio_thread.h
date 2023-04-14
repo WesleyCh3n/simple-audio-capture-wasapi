@@ -18,7 +18,7 @@
 #include "audio_stream.hpp"
 
 #ifdef DEBUG
-#include "WaveWriter.h"
+#include "wave_writer.h"
 #endif
 
 #define LOG(x) std::cout << x << '\n';

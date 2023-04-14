@@ -1,6 +1,6 @@
 #include "audio_stream.hpp"
 
-#include "WaveWriter.h"
+#include "wave_writer.h"
 
 int main(int argc, char *argv[]) {
   HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);

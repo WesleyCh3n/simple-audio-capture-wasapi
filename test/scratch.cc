@@ -21,9 +21,9 @@
 #include <iostream>
 #include <vector>
 
-#include "WaveWriter.h"
 #include "kiss_fft.h"
 #include "kiss_fftr.h"
+#include "wave_writer.h"
 
 #define REFTIMES_PER_SEC 5000000 // 100 nanosecond => 10^-7 second
 #define REFTIMES_PER_MILLISEC 10000

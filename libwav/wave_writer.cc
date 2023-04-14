@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------------
-// MFWaveWriter.cpp
+// WaveWriter.cpp
 //----------------------------------------------------------------------------------------------
-#include "WaveWriter.h"
+#include "wave_writer.h"
 
 BOOL WaveWriter::Initialize(const CHAR *wszFile, const BOOL bExtensibleFormat) {
   BOOL bRet = FALSE;
