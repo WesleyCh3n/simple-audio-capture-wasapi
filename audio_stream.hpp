@@ -30,8 +30,12 @@ public:
   ~AudioStream() {
     std::cout << "AudioStream dtor called\n";
     this->audio_client_->Stop();
-    this->audio_client_->Release();
-    this->capture_client_->Release();
+    if (this->audio_client_) {
+      this->audio_client_->Release();
+    }
+    if (this->capture_client_) {
+      this->capture_client_->Release();
+    }
     CoTaskMemFree(this->wave_format_);
     CoUninitialize();
   }
