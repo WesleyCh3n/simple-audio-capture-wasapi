@@ -4,13 +4,17 @@
 #include <iomanip>
 #include <stdexcept>
 
-AudioThread::AudioThread() : stop_(false), pause_(false) {
+AudioThread::AudioThread(uint32_t hz_gap) : stop_(false), pause_(false) {
   this->audio_stream_ = new AudioStream();
-  this->audio_fft_ =
-      new AudioFFT(this->audio_stream_->GetWaveFormat()->nSamplesPerSec / 100,
-                   this->audio_stream_->GetWaveFormat());
+  uint32_t fft_win =
+      this->audio_stream_->GetWaveFormat()->nSamplesPerSec / hz_gap;
+  this->audio_fft_ = new AudioFFT(fft_win % 2 == 0 ? fft_win : fft_win - 1,
+                                  this->audio_stream_->GetWaveFormat());
   this->decibel_len_ = audio_fft_->GetOutputLen();
   this->decibel_ = new float[decibel_len_];
+  for (int i = 0; i < decibel_len_; i++) {
+    this->decibel_[i] = -120.0;
+  }
 
 #ifdef DEBUG
   w_writer_.Initialize(

@@ -25,7 +25,7 @@
 
 class AudioThread {
 public:
-  AudioThread();
+  AudioThread(uint32_t hz_gap);
   ~AudioThread();
   void Start();
   void Pause();

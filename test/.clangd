@@ -3,3 +3,4 @@ CompileFlags:
     - -std=c++17
     - -I../libfft
     - -I../libwav
+    - -I../

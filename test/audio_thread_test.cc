@@ -13,7 +13,7 @@
 int main(int argc, char *argv[]) {
   std::cout << "Start main...\n";
 
-  AudioThread w;
+  AudioThread w(100);
   std::vector<float> data;
   w.Start();
 
