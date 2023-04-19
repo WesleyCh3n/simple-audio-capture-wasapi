@@ -86,7 +86,7 @@ void AudioThread::Run() {
   LOG("--> Exit Thread ID: " << std::this_thread::get_id());
 }
 
-void AudioThread::ProcessBuffer(uint8_t *data, uint32_t frame_len) {
+void AudioThread::ProcessBuffer(uint8_t *raw_data, uint32_t frame_len) {
   // pause this thread
   if (this->pause_) {
     std::unique_lock<std::mutex> locker(this->mutex_);
@@ -102,7 +102,7 @@ void AudioThread::ProcessBuffer(uint8_t *data, uint32_t frame_len) {
 #endif
 
   // TODO: base on type cast to different type
-  audio_fft_->GetDecibel((float *)data, frame_len, this->decibel_);
+  audio_fft_->GetDecibel((float *)raw_data, frame_len, this->decibel_);
 }
 
 uint32_t AudioThread::GetDecibelLen() { return this->decibel_len_; }
