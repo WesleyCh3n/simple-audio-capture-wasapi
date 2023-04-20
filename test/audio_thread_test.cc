@@ -17,14 +17,14 @@ int main(int argc, char *argv[]) {
   std::vector<float> data;
   w.Start();
 
-  auto db_len = w.GetDecibelLen();
-  float *vec = new float[db_len];
+  auto am_len = w.GetAmplitudeLen();
+  float *vec = new float[am_len];
   /* std::cout << "Press enter to quit...\n\n";
   getchar(); */
   for (int i = 0; i < 10; i++) {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    w.GetDecibel(vec);
-    for (int j = 0; j < db_len; j++) {
+    w.GetAmplitude(vec);
+    for (int j = 0; j < am_len; j++) {
       std::cout << vec[j] << ' ';
     }
     std::cout << '\n';

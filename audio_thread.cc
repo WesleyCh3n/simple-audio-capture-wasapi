@@ -10,10 +10,10 @@ AudioThread::AudioThread(uint32_t hz_gap) : stop_(false), pause_(false) {
       this->audio_stream_->GetWaveFormat()->nSamplesPerSec / hz_gap;
   this->audio_fft_ = new AudioFFT(fft_win % 2 == 0 ? fft_win : fft_win - 1,
                                   this->audio_stream_->GetWaveFormat());
-  this->decibel_len_ = audio_fft_->GetOutputLen();
-  this->decibel_ = new float[decibel_len_];
-  for (int i = 0; i < decibel_len_; i++) {
-    this->decibel_[i] = -120.0;
+  this->amplitude_len_ = audio_fft_->GetOutputLen();
+  this->amplitude_ = new float[amplitude_len_];
+  for (int i = 0; i < amplitude_len_; i++) {
+    this->amplitude_[i] = -120.0;
   }
 
   auto channels = this->audio_stream_->GetWaveFormat()->nChannels;
@@ -33,7 +33,7 @@ AudioThread::AudioThread(uint32_t hz_gap) : stop_(false), pause_(false) {
 }
 AudioThread::~AudioThread() {
   this->Stop();
-  delete[] this->decibel_;
+  delete[] this->amplitude_;
   for (int c = 0; c < this->audio_stream_->GetWaveFormat()->nChannels; c++) {
     delete[] this->raws_[c];
   }
@@ -130,14 +130,14 @@ void AudioThread::ProcessBuffer(uint8_t *raw_data, uint32_t frame_len) {
   }
 
   // TODO: base on type cast to different type
-  audio_fft_->GetDecibel((float *)raw_data, frame_len, this->decibel_);
+  audio_fft_->GetAmplitude((float *)raw_data, frame_len, this->amplitude_);
 }
 
-uint32_t AudioThread::GetDecibelLen() { return this->decibel_len_; }
+uint32_t AudioThread::GetAmplitudeLen() { return this->amplitude_len_; }
 
-void AudioThread::GetDecibel(float *dst) {
+void AudioThread::GetAmplitude(float *dst) {
   // std::unique_lock<std::mutex> locker(this->mutex_);
-  std::copy(this->decibel_, this->decibel_ + this->decibel_len_, dst);
+  std::copy(this->amplitude_, this->amplitude_ + this->amplitude_len_, dst);
 }
 
 void AudioThread::GetFreqRange(float *dst) { audio_fft_->GetFreqRange(dst); }

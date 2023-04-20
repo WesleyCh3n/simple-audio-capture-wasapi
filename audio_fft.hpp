@@ -43,7 +43,7 @@ public:
     }
   }
   template <typename T>
-  void GetDecibel(T *data, uint32_t &frame_len, float *dst) {
+  void GetAmplitude(T *data, uint32_t &frame_len, float *dst) {
     for (uint32_t i = 0; i < frame_len; i++, w_ptr_++) {
       T mono_sum = 0;
       for (uint16_t c = 0; c < wave_format_->nChannels; c++) {
@@ -57,7 +57,8 @@ public:
         for (uint32_t j = 0; j < this->out_len_; j++) {
           float amplitude =
               std::hypot(output_[j].r, output_[j].i) * 2 / (float)len_;
-          dst[j] = 20 * log10(amplitude / 1);
+          // dst[j] = 20 * log10(amplitude / 1);
+          dst[j] = amplitude;
         }
         w_ptr_ = 0;
       }
