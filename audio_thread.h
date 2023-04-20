@@ -32,9 +32,13 @@ public:
   void Resume();
   void Stop();
 
+  uint16_t GetChannels();
   uint32_t GetDecibelLen();
+  uint32_t GetRawLen();
+
   void GetDecibel(float *dst);
   void GetFreqRange(float *dst);
+  void GetRaw(float *dst, uint16_t c);
 
 private:
   void Run();
@@ -56,6 +60,10 @@ private:
 
   float *decibel_;
   uint32_t decibel_len_;
+
+  float **raws_;
+  uint32_t raw_len_;
+  uint32_t raw_ptr_;
 };
 
 #endif

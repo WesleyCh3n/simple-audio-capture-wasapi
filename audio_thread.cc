@@ -16,6 +16,15 @@ AudioThread::AudioThread(uint32_t hz_gap) : stop_(false), pause_(false) {
     this->decibel_[i] = -120.0;
   }
 
+  auto channels = this->audio_stream_->GetWaveFormat()->nChannels;
+
+  this->raws_ = new float *[channels];
+  for (int c = 0; c < channels; c++) {
+    this->raws_[c] = new float[fft_win];
+  }
+  this->raw_len_ = fft_win; // This could be anything else
+  this->raw_ptr_ = 0;
+
 #ifdef DEBUG
   w_writer_.Initialize(
       "test_1.wav",
@@ -24,6 +33,12 @@ AudioThread::AudioThread(uint32_t hz_gap) : stop_(false), pause_(false) {
 }
 AudioThread::~AudioThread() {
   this->Stop();
+  delete[] this->decibel_;
+  for (int c = 0; c < this->audio_stream_->GetWaveFormat()->nChannels; c++) {
+    delete[] this->raws_[c];
+  }
+  delete[] this->raws_;
+
   delete this->audio_stream_;
   delete this->audio_fft_;
   this->audio_stream_ = nullptr;
@@ -101,6 +116,19 @@ void AudioThread::ProcessBuffer(uint8_t *raw_data, uint32_t frame_len) {
       data, frame_len * audio_stream_->GetWaveFormat()->nBlockAlign);
 #endif
 
+  // Get raw data to each channels
+  float *tmp_raw_data = (float *)raw_data;
+  for (uint32_t i = 0; i < frame_len; i++, raw_ptr_++) {
+    float mono_sum = 0;
+    for (uint16_t c = 0; c < audio_stream_->GetWaveFormat()->nChannels; c++) {
+      raws_[c][raw_ptr_] =
+          tmp_raw_data[(i * audio_stream_->GetWaveFormat()->nChannels) + c];
+    }
+    if (raw_ptr_ == raw_len_ - 1) {
+      raw_ptr_ = 0;
+    }
+  }
+
   // TODO: base on type cast to different type
   audio_fft_->GetDecibel((float *)raw_data, frame_len, this->decibel_);
 }
@@ -113,3 +141,13 @@ void AudioThread::GetDecibel(float *dst) {
 }
 
 void AudioThread::GetFreqRange(float *dst) { audio_fft_->GetFreqRange(dst); }
+
+uint16_t AudioThread::GetChannels() {
+  return this->audio_stream_->GetWaveFormat()->nChannels;
+}
+
+uint32_t AudioThread::GetRawLen() { return this->raw_len_; }
+
+void AudioThread::GetRaw(float *dst, uint16_t c) {
+  std::copy(this->raws_[c], this->raws_[c] + this->raw_len_, dst);
+}

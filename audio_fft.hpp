@@ -27,7 +27,7 @@ public:
     freq_range_ = new float[out_len_]{0.0f};
 
     assert(sizeof(float) == wf->wBitsPerSample / 8);
-    channel_datum_ = new float[wf->nChannels];
+    channel_datum_ = new float[wf->nChannels]; // NOTE: What is this?
   }
   ~AudioFFT() {
     std::cout << "AudioFFT dtor called\n";
