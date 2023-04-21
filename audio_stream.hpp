@@ -2,10 +2,11 @@
 #define AUDIO_H
 
 #include <cassert>
-#include <functional>
-#include <iomanip>
-#include <iostream>
-#include <thread>
+#include <functional> // std::function
+#include <iomanip>    // setw
+#include <iostream>   //
+#include <sstream>    // ostringstream
+#include <thread>     // sleep_for
 
 // Wasapi
 #include <Audioclient.h>
@@ -14,6 +15,16 @@
 
 #define PRETTY_LOG(label, var)                                                 \
   std::cout << std::setw(16) << std::left << label << ": " << var << '\n';
+
+#define CHECK_HR(hr, msg)                                                      \
+  if (hr != 0) {                                                               \
+    std::ostringstream oss;                                                    \
+    oss << msg << "\r\n"                                                       \
+        << "Error Code: " << hr << "\r\nAbort!";                               \
+    MessageBox(nullptr, oss.str().c_str(), "HRESULT != 0",                     \
+               MB_OK | MB_ICONERROR);                                          \
+    exit(hr);                                                                  \
+  }
 
 inline void PrintWaveFormat(WAVEFORMATEX *wf);
 
@@ -45,9 +56,9 @@ public:
     const IID IID_IAudioCaptureClient = __uuidof(IAudioCaptureClient);
     hr = this->audio_client_->GetService(IID_IAudioCaptureClient,
                                          (void **)&this->capture_client_);
-    assert(hr == 0);
+    CHECK_HR(hr, "AudioClient GetService Failed")
     hr = this->audio_client_->Start();
-    assert(hr == 0);
+    CHECK_HR(hr, "AudioClient Start Failed")
     this->sleep_time_ = REFTIMES_PER_SEC * this->frame_max_ /
                         this->wave_format_->nSamplesPerSec /
                         REFTIMES_PER_MILLISEC / 2;
@@ -55,7 +66,7 @@ public:
   void StopService() {
     HRESULT hr;
     hr = this->audio_client_->Stop();
-    assert(hr == 0);
+    CHECK_HR(hr, "AudioClient Stop Failed")
   }
 
   using StopFn = std::function<bool()>;
@@ -90,25 +101,25 @@ private:
     IMMDeviceEnumerator *device_num = NULL;
     hr = CoCreateInstance(CLSID_MMDeviceEnumerator, NULL, CLSCTX_ALL,
                           IID_IMMDeviceEnumerator, (void **)&device_num);
-    assert(hr == 0);
+    CHECK_HR(hr, "CoCreateInstance Failed")
     IMMDevice *device = NULL;
     hr = device_num->GetDefaultAudioEndpoint(eRender, eConsole, &device);
-    assert(hr == 0);
+    CHECK_HR(hr, "GetDefaultAudioEndpoint Failed")
 
     hr = device->Activate(IID_IAudioClient, CLSCTX_ALL, NULL,
                           (void **)&this->audio_client_);
-    assert(hr == 0);
+    CHECK_HR(hr, "Device Activate Failed")
 
     hr = this->audio_client_->GetMixFormat(&this->wave_format_);
-    assert(hr == 0);
+    CHECK_HR(hr, "AudioClient GetMixFormat Failed")
 
     hr = this->audio_client_->Initialize(
         AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_LOOPBACK,
         REFTIMES_PER_SEC, 0, this->wave_format_, NULL);
-    assert(hr == 0);
+    CHECK_HR(hr, "AudioClient Initialize Failed")
 
     hr = this->audio_client_->GetBufferSize(&this->frame_max_);
-    assert(hr == 0);
+    CHECK_HR(hr, "AudioClient GetBufferSize Failed")
 
     PrintWaveFormat(this->wave_format_);
     PRETTY_LOG("Max Frame num", this->frame_max_)
