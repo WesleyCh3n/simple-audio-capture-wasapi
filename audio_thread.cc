@@ -21,6 +21,9 @@ AudioThread::AudioThread(uint32_t hz_gap) : stop_(false), pause_(false) {
   this->raws_ = new float *[channels];
   for (int c = 0; c < channels; c++) {
     this->raws_[c] = new float[fft_win];
+    for (int i = 0; i < fft_win; i++) {
+      this->raws_[c][i] = 0.0;
+    }
   }
   this->raw_len_ = fft_win; // This could be anything else
   this->raw_ptr_ = 0;
