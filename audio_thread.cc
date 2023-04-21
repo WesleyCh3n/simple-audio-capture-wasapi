@@ -12,7 +12,7 @@ AudioThread::AudioThread(uint32_t hz_gap) : stop_(false), pause_(false) {
                                   this->audio_stream_->GetWaveFormat());
   this->amplitude_len_ = audio_fft_->GetOutputLen();
   this->amplitude_ = new float[amplitude_len_];
-  for (int i = 0; i < amplitude_len_; i++) {
+  for (uint32_t i = 0; i < amplitude_len_; i++) {
     this->amplitude_[i] = -120.0;
   }
 
@@ -21,7 +21,7 @@ AudioThread::AudioThread(uint32_t hz_gap) : stop_(false), pause_(false) {
   this->raws_ = new float *[channels];
   for (int c = 0; c < channels; c++) {
     this->raws_[c] = new float[fft_win];
-    for (int i = 0; i < fft_win; i++) {
+    for (uint32_t i = 0; i < fft_win; i++) {
       this->raws_[c][i] = 0.0;
     }
   }
@@ -122,7 +122,6 @@ void AudioThread::ProcessBuffer(uint8_t *raw_data, uint32_t frame_len) {
   // Get raw data to each channels
   float *tmp_raw_data = (float *)raw_data;
   for (uint32_t i = 0; i < frame_len; i++, raw_ptr_++) {
-    float mono_sum = 0;
     for (uint16_t c = 0; c < audio_stream_->GetWaveFormat()->nChannels; c++) {
       raws_[c][raw_ptr_] =
           tmp_raw_data[(i * audio_stream_->GetWaveFormat()->nChannels) + c];

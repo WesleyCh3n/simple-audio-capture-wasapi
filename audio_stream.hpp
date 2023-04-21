@@ -31,11 +31,16 @@ inline void PrintWaveFormat(WAVEFORMATEX *wf);
 class AudioStream {
 #define REFTIMES_PER_SEC 10000000 // 100 nanosecond => 10^-7 second
 #define REFTIMES_PER_MILLISEC 10000
+  const IID IID_IAudioCaptureClient = __uuidof(IAudioCaptureClient);
+  const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
+  const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
+  const IID IID_IAudioClient = __uuidof(IAudioClient);
+
 public:
   AudioStream()
       : audio_client_(nullptr), capture_client_(nullptr), wave_format_(nullptr),
         raw_data_(nullptr), frame_max_(0), frame_num_(0), packet_len_(0) {
-    HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
     this->Initialize();
   }
   ~AudioStream() {
@@ -53,7 +58,6 @@ public:
 
   void StartService() {
     HRESULT hr;
-    const IID IID_IAudioCaptureClient = __uuidof(IAudioCaptureClient);
     hr = this->audio_client_->GetService(IID_IAudioCaptureClient,
                                          (void **)&this->capture_client_);
     CHECK_HR(hr, "AudioClient GetService Failed")
@@ -93,9 +97,6 @@ public:
 
 private:
   void Initialize() {
-    const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);
-    const IID IID_IMMDeviceEnumerator = __uuidof(IMMDeviceEnumerator);
-    const IID IID_IAudioClient = __uuidof(IAudioClient);
 
     HRESULT hr;
     IMMDeviceEnumerator *device_num = NULL;
